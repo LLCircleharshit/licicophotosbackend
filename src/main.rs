@@ -9,16 +9,28 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 fn handle_client(mut stream: TcpStream) {
-    let mut buffer = [0; 4096];
-    let mut total_read = 0;
-    while total_read < buffer.len() {
-        match stream.read(&mut buffer[total_read..]) {
+    let mut buffer = Vec::new();
+    let mut temp_buf = [0; 1024];
+
+    // Read the incoming stream in chunks
+    loop {
+        match stream.read(&mut temp_buf) {
             Ok(0) => break, // Connection closed
-            Ok(n) => total_read += n,
-            Err(_) => return,
+            Ok(n) => {
+                buffer.extend_from_slice(&temp_buf[..n]);
+                // Check if the request has ended (CRLF CRLF)
+                if buffer.windows(4).any(|w| w == b"\r\n\r\n") {
+                    break;
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read stream: {}", e);
+                return;
+            }
         }
     }
-    let request = String::from_utf8_lossy(&buffer[..total_read]);
+
+    let request = String::from_utf8_lossy(&buffer);
     println!("Full request: {}", request);
     
 
