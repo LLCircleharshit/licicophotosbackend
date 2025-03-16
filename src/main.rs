@@ -64,7 +64,7 @@ fn handle_client(mut stream: TcpStream) {
             let json_response = serde_json::to_string(&response_message).unwrap();
             let response = format!(
                 "HTTP/1.1 200 OK\r\n\
-                Access-Control-Allow-Origin: http://localhost:3000\r\n\
+                Access-Control-Allow-Origin: https://licicophotosbackend-production.up.railway.app/\r\n\
                 Content-Type: application/json\r\n\
                 Content-Length: {}\r\n\r\n\
                 {}",
