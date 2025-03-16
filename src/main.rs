@@ -16,6 +16,8 @@ fn handle_client(mut stream: TcpStream) {
     };
 
     let request: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&buffer[..bytes_read]);
+    println!("Full request: {:?}", request);
+
     let request_line = request.lines().next().unwrap_or("");
     
     // Handle OPTIONS preflight
@@ -34,7 +36,7 @@ fn handle_client(mut stream: TcpStream) {
     if request_line.starts_with("POST /") {
         if let Some(index) = request.find("\r\n\r\n") {
             let json_body = request[index + 4..].trim();
-            // println!("Extracted JSON body: {}", json_body);
+            println!("Extracted JSON body: {}", json_body);
 
             let request_data: Result<RequestData, _> = serde_json::from_str(json_body);
             // println!("{:?}", request_data);
