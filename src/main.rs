@@ -15,7 +15,7 @@ fn handle_client(mut stream: TcpStream) {
     };
 
     let request: String = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
-    println!("Full request:\n{}", request);
+    // println!("Full request:\n{}", request);
 
     let request_line = request.lines().next().unwrap_or("");
 
@@ -39,7 +39,7 @@ fn handle_client(mut stream: TcpStream) {
             .and_then(|line| line.split(':').nth(1))
             .and_then(|len| len.trim().parse::<usize>().ok())
             .unwrap_or(0);
-        println!("Content-Length: {}", content_length);
+        // println!("Content-Length: {}", content_length);
 
         // Find the start of the body
         let body_start = request.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
@@ -56,13 +56,13 @@ fn handle_client(mut stream: TcpStream) {
             }
         }
 
-        println!("Extracted JSON body: '{}'", body);
+        // println!("Extracted JSON body: '{}'", body);
 
         // Try to parse the JSON body
         let request_data: Result<RequestData, _> = serde_json::from_str(&body);
         let response_message = match request_data {
             Ok(RequestData::Auth { username, password, operation }) => {
-                println!("Parsed JSON: username='{}', password='{}', operation='{}'", username, password, operation);
+                // println!("Parsed JSON: username='{}', password='{}', operation='{}'", username, password, operation);
                 match operation.as_str() {
                     "encrypt" => encrypt::handle_auth(username, password, operation),
                     "decrypt" => decrypt::handle_auth(username, password, operation),
@@ -109,7 +109,7 @@ fn handle_client(mut stream: TcpStream) {
 
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
-    println!("Server listening on 0.0.0.0:8080");
+    // println!("Server listening on 0.0.0.0:8080");
 
     for stream in listener.incoming() {
         match stream {
