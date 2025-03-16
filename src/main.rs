@@ -19,9 +19,9 @@ fn handle_client(mut stream: TcpStream) {
     let request_line = request.lines().next().unwrap_or("");
     
     // Handle OPTIONS preflight
-    if request_line.starts_with("OPTIONS /licicophotosbackend") {
+    if request_line.starts_with("OPTIONS /") {
         let response = "HTTP/1.1 200 OK\r\n\
-            Access-Control-Allow-Origin: *\r\n\
+            Access-Control-Allow-Origin:*\r\n\
             Access-Control-Allow-Methods: POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Type\r\n\
             Content-Length: 0\r\n\r\n";
@@ -31,7 +31,7 @@ fn handle_client(mut stream: TcpStream) {
     }
 
     // Handle POST request
-    if request_line.starts_with("POST /licicophotosbackend") {
+    if request_line.starts_with("POST /") {
         if let Some(index) = request.find("\r\n\r\n") {
             let json_body = request[index + 4..].trim();
             // println!("Extracted JSON body: {}", json_body);
@@ -65,8 +65,6 @@ fn handle_client(mut stream: TcpStream) {
             let response = format!(
                 "HTTP/1.1 200 OK\r\n\
                 Access-Control-Allow-Origin: *\r\n\
-                Access-Control-Allow-Methods: POST, OPTIONS\r\n\
-                Access-Control-Allow-Headers: Content-Type\r\n\
                 Content-Type: application/json\r\n\
                 Content-Length: {}\r\n\r\n\
                 {}",
