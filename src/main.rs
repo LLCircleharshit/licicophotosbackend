@@ -65,6 +65,8 @@ fn handle_client(mut stream: TcpStream) {
             let response = format!(
                 "HTTP/1.1 200 OK\r\n\
                 Access-Control-Allow-Origin: *\r\n\
+                Access-Control-Allow-Methods: POST, OPTIONS\r\n\
+                Access-Control-Allow-Headers: Content-Type\r\n\
                 Content-Type: application/json\r\n\
                 Content-Length: {}\r\n\r\n\
                 {}",
