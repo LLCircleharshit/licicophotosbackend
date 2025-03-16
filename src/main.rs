@@ -8,29 +8,14 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 
 fn handle_client(mut stream: TcpStream) {
-    let mut buffer = Vec::new();
-    let mut temp_buf = [0; 1024];
+    let mut buffer = [0; 4096];
+    let bytes_read = match stream.read(&mut buffer) {
+        Ok(size) if size > 0 => size,
+        _ => return,
+    };
 
-    // Read the incoming stream in chunks
-    loop {
-        match stream.read(&mut temp_buf) {
-            Ok(0) => break, // Connection closed
-            Ok(n) => {
-                buffer.extend_from_slice(&temp_buf[..n]);
-                // Check if the request has ended (CRLF CRLF)
-                if buffer.windows(4).any(|w| w == b"\r\n\r\n") {
-                    break;
-                }
-            }
-            Err(e) => {
-                eprintln!("Failed to read stream: {}", e);
-                return;
-            }
-        }
-    }
-
-    let request = String::from_utf8_lossy(&buffer);
-    println!("Full request: {}", request);
+    let request: String = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+    println!("Full request:\n{}", request);
 
     let request_line = request.lines().next().unwrap_or("");
 
@@ -47,54 +32,78 @@ fn handle_client(mut stream: TcpStream) {
 
     // Handle POST request
     if request_line.starts_with("POST /") {
-        if let Some(index) = request.find("\r\n\r\n") {
-            let json_body = &request[index + 4..].trim();
-            println!("Extracted JSON body: {}", json_body);
+        // Extract Content-Length
+        let content_length = request
+            .lines()
+            .find(|line| line.to_ascii_lowercase().starts_with("content-length:"))
+            .and_then(|line| line.split(':').nth(1))
+            .and_then(|len| len.trim().parse::<usize>().ok())
+            .unwrap_or(0);
+        println!("Content-Length: {}", content_length);
 
-            let request_data: Result<RequestData, _> = serde_json::from_str(json_body);
-            let response_message = match request_data {
-                Ok(RequestData::Auth { username, password, operation }) => {
-                    match operation.as_str() {
-                        "encrypt" => encrypt::handle_auth(username, password, operation),
-                        "decrypt" => decrypt::handle_auth(username, password, operation),
-                        _ => ResponseData {
-                            message: "Unknown operation".to_string(),
-                            username: "".to_string(),
-                            password: "".to_string(),
-                        },
-                    }
+        // Find the start of the body
+        let body_start = request.find("\r\n\r\n").map(|i| i + 4).unwrap_or(0);
+        let mut body = String::from(&request[body_start..]);
+
+        // If the body is incomplete, read more data
+        while body.len() < content_length {
+            let mut extra_buffer = [0; 4096];
+            match stream.read(&mut extra_buffer) {
+                Ok(size) if size > 0 => {
+                    body.push_str(&String::from_utf8_lossy(&extra_buffer[..size]));
                 }
-                Err(e) => {
-                    println!("JSON parsing error: {:?}", e);
-                    ResponseData {
-                        message: "Invalid JSON format".to_string(),
+                _ => break,
+            }
+        }
+
+        println!("Extracted JSON body: '{}'", body);
+
+        // Try to parse the JSON body
+        let request_data: Result<RequestData, _> = serde_json::from_str(&body);
+        let response_message = match request_data {
+            Ok(RequestData::Auth { username, password, operation }) => {
+                println!("Parsed JSON: username='{}', password='{}', operation='{}'", username, password, operation);
+                match operation.as_str() {
+                    "encrypt" => encrypt::handle_auth(username, password, operation),
+                    "decrypt" => decrypt::handle_auth(username, password, operation),
+                    _ => ResponseData {
+                        message: "Unknown operation".to_string(),
                         username: "".to_string(),
                         password: "".to_string(),
-                    }
+                    },
                 }
-            };
+            }
+            Err(e) => {
+                println!("JSON parsing error: {:?}", e);
+                ResponseData {
+                    message: "Invalid JSON format".to_string(),
+                    username: "".to_string(),
+                    password: "".to_string(),
+                }
+            }
+        };
 
-            let json_response = serde_json::to_string(&response_message).unwrap();
-            let response = format!(
-                "HTTP/1.1 200 OK\r\n\
-                Access-Control-Allow-Origin: *\r\n\
-                Access-Control-Allow-Methods: POST, OPTIONS\r\n\
-                Access-Control-Allow-Headers: Content-Type\r\n\
-                Content-Type: application/json\r\n\
-                Content-Length: {}\r\n\r\n\
-                {}",
-                json_response.len(),
-                json_response
-            );
+        let json_response = serde_json::to_string(&response_message).unwrap();
+        let response = format!(
+            "HTTP/1.1 200 OK\r\n\
+            Access-Control-Allow-Origin: *\r\n\
+            Access-Control-Allow-Methods: POST, OPTIONS\r\n\
+            Access-Control-Allow-Headers: Content-Type\r\n\
+            Content-Type: application/json\r\n\
+            Content-Length: {}\r\n\r\n\
+            {}",
+            json_response.len(),
+            json_response
+        );
 
-            stream.write_all(response.as_bytes()).unwrap();
-        } else {
-            let response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-            stream.write_all(response.as_bytes()).unwrap();
+        if let Err(e) = stream.write_all(response.as_bytes()) {
+            eprintln!("Failed to send response: {}", e);
         }
     } else {
         let response = "HTTP/1.1 404 Not Found\r\n\r\n";
-        stream.write_all(response.as_bytes()).unwrap();
+        if let Err(e) = stream.write_all(response.as_bytes()) {
+            eprintln!("Failed to send 404 response: {}", e);
+        }
     }
 }
 
