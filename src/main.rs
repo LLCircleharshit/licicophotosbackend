@@ -21,7 +21,7 @@ fn handle_client(mut stream: TcpStream) {
     // Handle OPTIONS preflight
     if request_line.starts_with("OPTIONS /licicophotosbackend") {
         let response = "HTTP/1.1 200 OK\r\n\
-            Access-Control-Allow-Origin: http://localhost:3000\r\n\
+            Access-Control-Allow-Origin: https://licicophotosbackend-production.up.railway.app\r\n\
             Access-Control-Allow-Methods: POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Type\r\n\
             Content-Length: 0\r\n\r\n";
