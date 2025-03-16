@@ -10,13 +10,17 @@ use std::thread;
 
 fn handle_client(mut stream: TcpStream) {
     let mut buffer = [0; 4096];
-    let bytes_read = match stream.read(&mut buffer) {
-        Ok(size) if size > 0 => size,
-        _ => return,
-    };
-
-    let request: std::borrow::Cow<'_, str> = String::from_utf8_lossy(&buffer[..bytes_read]);
-    println!("Full request: {:?}", request);
+    let mut total_read = 0;
+    while total_read < buffer.len() {
+        match stream.read(&mut buffer[total_read..]) {
+            Ok(0) => break, // Connection closed
+            Ok(n) => total_read += n,
+            Err(_) => return,
+        }
+    }
+    let request = String::from_utf8_lossy(&buffer[..total_read]);
+    println!("Full request: {}", request);
+    
 
     let request_line = request.lines().next().unwrap_or("");
     
