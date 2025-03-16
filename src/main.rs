@@ -1,4 +1,3 @@
-// main.rs
 mod models;
 mod handlers;
 use models::{RequestData, ResponseData};
@@ -32,10 +31,9 @@ fn handle_client(mut stream: TcpStream) {
 
     let request = String::from_utf8_lossy(&buffer);
     println!("Full request: {}", request);
-    
 
     let request_line = request.lines().next().unwrap_or("");
-    
+
     // Handle OPTIONS preflight
     if request_line.starts_with("OPTIONS /") {
         let response = "HTTP/1.1 200 OK\r\n\
@@ -43,20 +41,17 @@ fn handle_client(mut stream: TcpStream) {
             Access-Control-Allow-Methods: POST, OPTIONS\r\n\
             Access-Control-Allow-Headers: Content-Type\r\n\
             Content-Length: 0\r\n\r\n";
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
+        stream.write_all(response.as_bytes()).unwrap();
         return;
     }
 
     // Handle POST request
     if request_line.starts_with("POST /") {
         if let Some(index) = request.find("\r\n\r\n") {
-            let json_body = request[index + 4..].trim();
+            let json_body = &request[index + 4..].trim();
             println!("Extracted JSON body: {}", json_body);
 
             let request_data: Result<RequestData, _> = serde_json::from_str(json_body);
-            // println!("{:?}", request_data);
-
             let response_message = match request_data {
                 Ok(RequestData::Auth { username, password, operation }) => {
                     match operation.as_str() {
@@ -92,23 +87,20 @@ fn handle_client(mut stream: TcpStream) {
                 json_response
             );
 
-            stream.write(response.as_bytes()).unwrap();
-            stream.flush().unwrap();
+            stream.write_all(response.as_bytes()).unwrap();
         } else {
             let response = "HTTP/1.1 400 Bad Request\r\n\r\n";
-            stream.write(response.as_bytes()).unwrap();
-            stream.flush().unwrap();
+            stream.write_all(response.as_bytes()).unwrap();
         }
     } else {
         let response = "HTTP/1.1 404 Not Found\r\n\r\n";
-        stream.write(response.as_bytes()).unwrap();
-        stream.flush().unwrap();
+        stream.write_all(response.as_bytes()).unwrap();
     }
 }
 
 fn main() {
     let listener = TcpListener::bind("0.0.0.0:8080").unwrap();
-    // println!("Server listening on 0.0.0.0:8080");
+    println!("Server listening on 0.0.0.0:8080");
 
     for stream in listener.incoming() {
         match stream {
